@@ -2,11 +2,14 @@ from __future__ import unicode_literals
 
 # -*- coding: utf-8 -*-
 import os 
+from itertools import chain
+from pypinyin import lazy_pinyin
 from tqdm import tqdm
 import pandas as pd
 import pymysql
 import json
 import sys
+import pandas as pd
 import django
 import socket
 from django.conf import settings
@@ -15,6 +18,7 @@ from django.conf import settings
 # sys.path.append(os.path.abspath(os.path.join(BASE_DIR, os.pardir)))
 os.environ['DJANGO_SETTINGS_MODULE'] = 'WebMysql.settings'
 django.setup()
+circulation_times = 200
 # os.environ.setdefault("DJANGO_SETTINGS_MODULE", "DataMangement.settings")
 from DataManagement.models import *
 '''
@@ -67,6 +71,11 @@ def get_stations(file=r'./data/stationinfo.xlsx'):
         station_dict[item[station_name_id]] = (item[weidu_id], item[jingdu_id])
     return station_dict
 
+def split_csv(fileName=None):
+    data = pd.read_csv(fileName, error_bad_lines=False, names=['value'], index_col=False, header=None)
+    # TODO:设计算法抽取数据
+    return dataFrame
+
 
 def query():
     conn = pymysql.connect(
@@ -83,8 +92,10 @@ def query():
     # 先试着操作waveinfo_rs表
     cursor.execute("SELECT * FROM waveinfo_rs")
     cols = cursor.description
+    # 根据表得到几个字段的index
     station = 3
     peaktime = 6
+    slicefile = 12
     # 接下来获取waveinfo_rs表的全部数据
     data = cursor.fetchall()
     dataLength = len(data)
@@ -97,15 +108,29 @@ def query():
     s.connect((host, port))
     
     
-    for i in tqdm(range(200)):
+    for i in tqdm(range(circulation_times)):
+        # 初始化data_batch 为空，因此可以直接进入第一个if语句
+        cur_names = lazy_pinyin(data[i][station])
+        cur_name = chain(*cur_names)
+        cur_name = ''.join(cur_name)
+        fileName = data[i][slicefile]
+        
+        wave_data = split_csv()
         if not data_batch:
-            data_batch.append({'stationname':data[i][station], 'peaktime':data[i][peaktime]})
+            data_batch.append({'stationname':cur_name, 'peaktime':data[i][peaktime]})
             continue
-        elif cluster_data(data[i], data[i+1]):
-            data_batch.append({'stationname':data[i][station], 'peaktime':data[i][peaktime]})
+        # 如果第i个数据和第i-1个数据的相关性足够高，那就一起加入data_batch，日后一起发送
+        elif cluster_data(data[i-1], data[i]):
+            last_names = lazy_pinyin(data[i-1][station])
+            last_name = chain(*last_names)
+            last_name = ''.join(last_name)
+            data_batch.append({'stationname':last_name, 'peaktime':data[i][peaktime]})
             continue
+        # 如果第i个数据和第i-1个数据的相关性不够高，那就将当前data_batch所有的值拿出来进行发送操作，并且将第i
+        # 个数据放在新的data_batch里面
         else:
             data_send = json.dumps(data_batch)
+            data_send = str(len(data_send)).zfill(10) + data_send
             try:
                 s.sendall(data_send.encode())
                 info = s.recv(1024)
@@ -115,18 +140,12 @@ def query():
                 print("Send failed!!!!!")
                 print("The data not sent is")
                 print(data_batch)
-            data_batch = []
-            
+            data_batch = [{'stationname':cur_name, 'peaktime':data[i][peaktime]}]
     s.close()
-    
             
-            
-            
-        
     print()
 
 def cluster_data(data_1, data_2):
     return False
-    
-# get_stations()
+
 query()

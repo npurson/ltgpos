@@ -6,6 +6,10 @@
 #include <direct.h>
 #include <ctime>
 using namespace std;
+
+#define RECVLENGTH 30
+#define HEADLENGTH 10
+
 #pragma comment(lib, "ws2_32.lib")
 
 vector<string> split(const string& str, const string& delim) {
@@ -64,18 +68,18 @@ int main() {
     while(true){
         sockaddr_in remoteAddr;
         int nAddrLen = sizeof(remoteAddr);
-        char revData[4096];
+        char revData[RECVLENGTH];
         printf("\n Waiting for connection......\n");
         sClient = accept(slisten, (SOCKADDR *)&remoteAddr, &nAddrLen);
         if(sClient == INVALID_SOCKET){
             printf("Accept error!\n");
-            if(i++ > n){
+            if(i++ > n)
                 break;
-            }
             continue;
         }
         printf("One connection detected!\n");
         // 创建供写入的文件
+        // 获得时间，根据时间进行文件的创建
         time_t rawTime;
         struct tm *info;
         time(&rawTime);
@@ -87,30 +91,63 @@ int main() {
         curTimeStr.replace(curTimeStr.find(":"), 1, "_");
         vector<string> resStr = split(curTimeStr, " ");
         string outFileName = resStr[4] + "_" + resStr[1] + "_" + resStr[2] + "_" + resStr[3] + ".txt";
-//        const char* fileName = outFileName.c_str();
         string tmp = getcwd(NULL, 0);
         outFileName = tmp + "\\" + outFileName;
         ofstream outFile;
-//        outFile.open(outFileName.c_str(), ios::out);
         outFile.open(outFileName.c_str(), ios::out);
+        // 用来保存的文件创建结束，如果创建失败，直接返回
         if(!outFile)
             return -1;
+
         while(true){
 
             // 接受数据
-            int ret = recv(sClient, revData, 4096, 0);
-            if(ret > 0){
-                revData[ret] = 0x00;
-                printf(revData);
+            memset(revData, 0, RECVLENGTH); // 将保存缓冲区数据的变量清0
+            string tmpRevdata = "";
+            int recvLength = 0;
+            int fullLength = 0;
+            int ret = recv(sClient, revData, RECVLENGTH, 0);
+            if(ret <= 0)
+                break;
+            // 对字符数组最后一位置00，否则转换string出错
+            revData[RECVLENGTH] = 0x00;
+            // 取得字符数据，进行解析获得有效数据长度和第一段有效数据
+            string tmp = revData;
+            // 解析字符串得到这条数据的有效数据长度和有效数据
+            fullLength = atoi(tmp.substr(0, HEADLENGTH).c_str());
+            recvLength += tmp.substr(HEADLENGTH).length();
+            // 如果有效数据长度小于RECVLENGTH，那就可以直接下一条了
+            if(fullLength < RECVLENGTH)
+                continue;
+            else{
+                tmp = tmp.substr(HEADLENGTH);
+                while(recvLength < fullLength){
+                    memset(revData, 0, sizeof(revData));
+                    // 如果剩下这条数据没有接受的长度大于定义的数组最大长度，那就接受RECVLENGTH这么长，否则接受剩余的长度即可
+                    if (fullLength - recvLength > RECVLENGTH)
+                        recv(sClient, revData, RECVLENGTH, 0);
+                    else
+                        recv(sClient, revData, fullLength - recvLength, 0);
+                    // 取得数据
+                    string t = revData;
+                    // 拼接数据
+                    tmp += t;
+                    // 对当前接受的数据的长度进行累计计数
+                    recvLength += ret;
+                }
             }
-            string writeData = revData;
-            outFile << writeData << endl;
-
-            // 发送数据
+            // 接受一条有效数据完毕，清空状态
+            recvLength = 0;
+            printf("\n%d\n", tmp.length());
+            outFile << tmp << endl;
+            tmp = "";
+            // 发送数据，表明接受结束
             ret = send(sClient, sendData, strlen(sendData), 0);
+            // 发送数据失败
             if(ret < 0)
                 break;
         }
+        // 文件关闭
         outFile.close();
         closesocket(sClient);
     }
