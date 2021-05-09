@@ -31,7 +31,7 @@ class Converter():
         mask = 0xffff >> (16 - nValidateBit + 1)
         # TODO：
         # 1. 目前数据和机器数据都是小字节序，没做额外操作进行修改
-		# 2. 数据一次读入内存，没有分批读取
+        # 2. 数据一次读入内存，没有分批读取
         
         nOffsetValue = data
         nReturnValue = 0
