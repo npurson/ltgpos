@@ -108,32 +108,32 @@ long filter_outliers(double* ssr_locs, int num_ssrs)
 }
 
 
-double GrubbsTable05[] = {
-    0, 0, 0, 1.15, 1.46, 1.67, 1.82, 1.94, 2.03, 2.11, 2.18, 2.23, 2.29, 2.33, 2.37, 2.41, 2.44, 2.47,
-    2.5, 2.53, 2.56, 2.58, 2.6, 2.62, 2.64, 2.66, 2.68, 2.7, 2.72, 2.73, 2.75, 2.76, 2.78, 2.79, 2.81,
-    2.82, 2.83, 2.84, 2.85, 2.86, 2.87, 2.88, 2.89, 2.9, 2.91, 2.92, 2.928, 2.936, 2.944, 2.952, 2.967,
-    2.974, 2.981, 2.988, 2.995, 3.002, 3.009, 3.016, 3.023, 3.03, 3.036, 3.042, 3.048, 3.054
-};
+// double GrubbsTable05[] = {
+//     0, 0, 0, 1.15, 1.46, 1.67, 1.82, 1.94, 2.03, 2.11, 2.18, 2.23, 2.29, 2.33, 2.37, 2.41, 2.44, 2.47,
+//     2.5, 2.53, 2.56, 2.58, 2.6, 2.62, 2.64, 2.66, 2.68, 2.7, 2.72, 2.73, 2.75, 2.76, 2.78, 2.79, 2.81,
+//     2.82, 2.83, 2.84, 2.85, 2.86, 2.87, 2.88, 2.89, 2.9, 2.91, 2.92, 2.928, 2.936, 2.944, 2.952, 2.967,
+//     2.974, 2.981, 2.988, 2.995, 3.002, 3.009, 3.016, 3.023, 3.03, 3.036, 3.042, 3.048, 3.054
+// };
 
 
-std::vector<double> grubbs_test(std::vector<double> xs_)
-{
-    std::vector<double> xs = xs_;
-    double avg = 0, var = 0, std;
-    for (int i = 0; i < xs.size(); i++) avg += xs[i];
-    avg /= xs.size();
-    for (int i = 0; i < xs.size(); i++) var += (xs[i] - avg) * (xs[i] - avg);
-    std = sqrt(var / xs.size());
+// std::vector<double> grubbs_test(std::vector<double> xs_)
+// {
+//     std::vector<double> xs = xs_;
+//     double avg = 0, var = 0, std;
+//     for (int i = 0; i < xs.size(); i++) avg += xs[i];
+//     avg /= xs.size();
+//     for (int i = 0; i < xs.size(); i++) var += (xs[i] - avg) * (xs[i] - avg);
+//     std = sqrt(var / xs.size());
 
-    for (std::vector<double>::iterator it = xs.begin(); it != xs.end();) {
-        if (abs(*it - avg) >= GrubbsTable05[xs.size()] * std) {
-            xs.erase(it);
-        } else {
-            it++;
-        }
-    }
-    return xs.size() ? xs : xs_;
-}
+//     for (std::vector<double>::iterator it = xs.begin(); it != xs.end();) {
+//         if (abs(*it - avg) >= GrubbsTable05[xs.size()] * std) {
+//             xs.erase(it);
+//         } else {
+//             it++;
+//         }
+//     }
+//     return xs.size() ? xs : xs_;
+// }
 
 
 // int dump_grdres(double* outs, int* grd_size, const char* filename)

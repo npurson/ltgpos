@@ -3,14 +3,14 @@
 rm libs/* test/*.so test/*.out
 
 $NVCC --compiler-options -fPIC -DTEST -rdc=true -shared \
-    src/ltgpos.cu \
-    src/comb_mapper.cu \
-    src/grid_search.cu \
-    src/json_parser.cu \
-    src/geodistance.cu \
-    src/utils.cu \
-    src/cJSON.c \
-    -o libs/libltgpos.so
+  src/ltgpos.cu \
+  src/comb_mapper.cu \
+  src/grid_search.cu \
+  src/json_parser.cu \
+  src/geodistance.cu \
+  src/utils.cu \
+  src/cJSON.c \
+  -o libs/libltgpos.so
 
 cp libs/libltgpos.so test/
 export LD_LIBRARY_PATH=test:$LD_LIBRARY_PATH
