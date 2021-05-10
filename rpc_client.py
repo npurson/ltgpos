@@ -1,8 +1,8 @@
 import os
+import sys
 import argparse
 import socket
 import json
-import datetime
 from collections import namedtuple
 
 import pymysql
@@ -31,13 +31,24 @@ def parse_args():
     return parser.parse_args()
 
 
+def convert_slice(path: str):
+    """Converts binary number from SLICE file to decimal number."""
+    with open(path, 'rb') as f:
+        data = f.read()[24:]
+        while data:
+            # TODO bin to dec
+            data = data[2:]
+    return
+
+
 class RpcClient(object):
 
     def __init__(self, addr, port):
 
-        db = pymysql.connect(host='localhost', port=3306, db='thunder',
-                             user='root', passwd='xuyifei')
-        self.cursor = db.cursor()
+        self.db = pymysql.connect(
+            host='localhost', port=3306, db='thunder',
+            user='root', passwd='xuyifei')
+        self.cursor = self.db.cursor()
         self.cursor.execute("SELECT * FROM waveinfo_rs")
         if DEBUG:
             print('[DB] Database connected.')
@@ -46,6 +57,13 @@ class RpcClient(object):
         self.sock.connect((addr, port))
         if DEBUG:
             print('[RPC] Socket connected.')
+
+    def exit(self):
+        self.sock.sendall('-2'.zfill(5).encode())
+        self.sock.close()
+        self.cursor.close()
+        self.db.close()
+        sys.exit()
 
     def loop(self) -> None:
 
@@ -67,15 +85,26 @@ class RpcClient(object):
                 }
 
             data = cursor.fetchone()
-            data_dict = extract_data(data)
-            return data_dict['datetime'], data_dict
-        
+            if data is not None:
+                data_dict = extract_data(data)
+                return data_dict['datetime'], data_dict
+            else:
+                self.exit()
+
         def ltgpos_rpc(sock, data: list[dict]) -> None:
+            """
+            Header:
+                5 bytes.
+                >0: length of data string.
+                -1: Close socket.
+                -2: Close server.
+            """
             data_json = json.dumps(data)
-            data = str(len(data_json)).zfill(8) + data_json
+            data = str(len(data_json)).zfill(5) + data_json
             sock.sendall(data.encode())
-            sock.recv(8192 * 8)
+            res = sock.recv(8192 * 8)
             # TODO write to database
+            print(res)
 
         prev_datetime, data = fetch_data(self.cursor)
         data_batch = [data]
