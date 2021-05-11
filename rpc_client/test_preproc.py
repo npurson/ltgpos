@@ -1,44 +1,24 @@
 import sys
 import argparse
-import socket
 import json
 import warnings
 from typing import Tuple, List
 
-import pymysql
-from utils import StationInfo, convert_slice
+from utils import StationInfo
 
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--addr', type=str, default='127.0.0.1')
-    parser.add_argument('--port', type=int)
-    parser.add_argument('--debug', type=bool, default=True)
+    parser.add_argument('--input_file', type=str)
     return parser.parse_args()
 
 
 class RpcClient(object):
 
-    def __init__(self, addr, port):
-
-        self.db = pymysql.connect(
-            host='localhost', port=3306, db='thunder',
-            user='root', passwd='xuyifei')
-        self.cursor = self.db.cursor()
-        self.cursor.execute("SELECT * FROM waveinfo_rs")
-        if DEBUG:
-            print('[DB] Database connected.')
-
-        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.sock.connect((addr, port))
-        if DEBUG:
-            print('[RPC] Socket connected.')
+    def __init__(self, f):
+        self.cursor = f
 
     def exit(self):
-        self.sock.sendall('-2'.zfill(5).encode())
-        self.sock.close()
-        self.cursor.close()
-        self.db.close()
         sys.exit()
 
     def loop(self) -> None:
@@ -53,15 +33,18 @@ class RpcClient(object):
                 STATIONNAME = 3
                 PEAKVALUE = 7
                 return {
-                    'datetime': data[DATETIME].strftime('%Y-%m-%d %H:%M:%S'),
-                    'microsecond': data[MICROSEC],
+                    'datetime': data[DATETIME],
+                    'microsecond': int(data[MICROSEC]),
                     'node': data[STATIONNAME],
                     'latitude': StationInfo[data[STATIONNAME]].latitude,
                     'longitude': StationInfo[data[STATIONNAME]].longitude,
-                    'signal_strength': data[PEAKVALUE], }
+                    'signal_strength': float(data[PEAKVALUE]), }
+            
+            def split(input: str) -> tuple:
+                return tuple([v.split("'")[1] for v in input.split(',')])
 
             while True:
-                data = cursor.fetchone()
+                data = split(next(cursor))
                 if data is None:            # Database cleared.
                     self.exit()
                 elif data[3] not in StationInfo:
@@ -71,26 +54,12 @@ class RpcClient(object):
             data_dict = extract_data(data)
             return data_dict['datetime'], data_dict
 
-        def ltgpos_rpc(sock, data: List[dict]) -> None:
-            """
-            Header:
-                5 bytes.
-                >0: length of data string.
-                -1: Close socket.
-                -2: Close server.
-            """
+        def ltgpos_rpc(data: List[dict]) -> None:
             # TODO Deduplicate and sort
             if len(data) < 3:
                 return
-
             data_json = json.dumps(data)
-            data = str(len(data_json)).zfill(5) + data_json
-            print(data)
-            sock.sendall(data.encode())
-            res = sock.recv(8192 * 8)
-            # TODO write to database
-            print(res)
-            return
+            print(data_json)
 
         data_batch = None
         while True:
@@ -103,14 +72,12 @@ class RpcClient(object):
             if datetime == prev_datetime:
                 data_batch.append(data)
             else:
-                ltgpos_rpc(self.sock, data_batch)
+                ltgpos_rpc(data_batch)
                 data_batch = None
 
 
 if __name__ == '__main__':
     args = parse_args()
-    global DEBUG
-    DEBUG = args.debug
-
-    server = RpcClient(args.addr, args.port)
-    server.loop()
+    with open(args.input_file) as f:
+        server = RpcClient(f)
+        server.loop()
