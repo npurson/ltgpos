@@ -32,5 +32,3 @@ typedef struct grdinfo {
 
 
 void grid_search(ssrinfo_t* sinfos, grdinfo_t* ginfos, schdata_t* schdata);
-
-void grid_search_slide(ssrinfo_t* sinfos, grdinfo_t* ginfos, schdata_t* schdata);

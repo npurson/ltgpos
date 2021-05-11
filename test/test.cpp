@@ -6,7 +6,7 @@
 
 int main(int argc, char** argv)
 {
-    char buf[10240];
+    char buf[8192];
     char* filename = argv[1];
     FILE* fp = fopen(filename, "r");
 

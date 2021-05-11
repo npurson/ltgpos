@@ -3,18 +3,18 @@
 rm libs/* test/*.so test/*.out
 
 $NVCC --compiler-options -fPIC -DTEST -rdc=true -shared \
-  src/ltgpos.cu \
-  src/comb_mapper.cu \
+  src/ltgpos.cpp \
+  src/json_parser.cpp \
+  src/comb_mapper.cpp \
   src/grid_search.cu \
-  src/json_parser.cu \
   src/geodistance.cu \
-  src/utils.cu \
+  src/utils.cpp \
   src/cJSON.c \
   -o libs/libltgpos.so
 
 cp libs/libltgpos.so test/
 export LD_LIBRARY_PATH=test:$LD_LIBRARY_PATH
-g++ test/test.c -I/usr/local/cuda/include/ -Ltest -lltgpos -o test/test.out
+g++ test/test.cpp -I/usr/local/cuda/include/ -Ltest -lltgpos -o test/test.out
 
 while getopts "i:o" arg; do
   case $arg in

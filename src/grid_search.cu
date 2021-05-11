@@ -37,7 +37,6 @@ __global__ void calGirdGoodness2d_G(ssrinfo_t sinfo, grdinfo_t ginfo)
 void grid_search(ssrinfo_t* ssrinfo, grdinfo_t* grdinfo, schdata_t* schdata)
 {
     if (get_num_involved(schdata->involved) < 3) {
-        // fflush(stdout);
         // fprintf(stderr, "%s(%d): grid search expects number of involved sensors >= 3, but got %d.\n",
         //         __FILE__, __LINE__, get_num_involved(schdata->involved));
         schdata->out_ans[4] = INFINITY;
@@ -71,48 +70,6 @@ void grid_search(ssrinfo_t* ssrinfo, grdinfo_t* grdinfo, schdata_t* schdata)
         for (int j = 0; j < 2; j++) {
             grd_inv[j] = (sch_dom[j * 2 + 1] - sch_dom[j * 2]) / (kMaxGrdSize - 1);
         }
-
-        // ################################################################
-        //                 Grid search with sliding domain                #
-        // ################################################################
-        // if (!i && (sch_dom[1] - sch_dom[0]) * (sch_dom[3] - sch_dom[2]) > 200) {
-        //     for (int j = 0; j < 2; j++) grd_inv[j] /= 2;
-        //     int min_x = 0, min_y = 0;
-
-        //     for (int x = 0; x <= 2; x++) {
-        //         for (int y = 0; y <= 2; y++) {
-        //             sch_dom[0] = schdata->sch_dom[0] + (schdata->sch_dom[1] - schdata->sch_dom[0]) / 2 * x;
-        //             sch_dom[1] = schdata->sch_dom[0] + (schdata->sch_dom[1] - schdata->sch_dom[0]) / 2 * (x + 1);
-        //             sch_dom[2] = schdata->sch_dom[2] + (schdata->sch_dom[3] - schdata->sch_dom[2]) / 2 * y;
-        //             sch_dom[3] = schdata->sch_dom[2] + (schdata->sch_dom[3] - schdata->sch_dom[2]) / 2 * (y + 1);
-        //             dim3 grid(kMaxGrdSize), block(kMaxGrdSize);
-        //             calGirdGoodness2d_G <<<grid, block>>> (*ssrinfo, *grdinfo);
-        //             cudaError_t err = cudaGetLastError();
-        //             if (err != cudaSuccess) {
-        //                 fprintf(stderr, "%s(%d): %s.\n", __FILE__, __LINE__, cudaGetErrorString(err));
-        //                 out_ans[4] = INFINITY;
-        //                 return;
-        //             }
-        //             cudaMemcpy(houts, grdinfo->douts, kMaxGrdNum * sizeof(double), cudaMemcpyDeviceToHost);
-        //             if (!x && !y) min_err = houts[0];
-        //             for (int j = 0; j < kMaxGrdNum; j++) {
-        //                 if (houts[j] >= min_err) continue;
-        //                 min_err = houts[j];
-        //                 min_idx = j;
-        //                 min_x = x;
-        //                 min_y = y;
-        //             }
-        //         }
-        //     }
-        //     sch_dom[0] = schdata->sch_dom[0] + (schdata->sch_dom[1] - schdata->sch_dom[0]) / 2 * min_x;
-        //     sch_dom[2] = schdata->sch_dom[2] + (schdata->sch_dom[3] - schdata->sch_dom[2]) / 2 * min_y;
-        //     out_ans[1] = sch_dom[0] + min_idx % kMaxGrdSize * grd_inv[0];
-        //     out_ans[2] = sch_dom[2] + min_idx / kMaxGrdSize % kMaxGrdSize * grd_inv[1];
-        //     continue;
-        // }
-        // ################################################################
-        //                              End                               #
-        // ################################################################
 
         dim3 grid(kMaxGrdSize), block(kMaxGrdSize);
         calGirdGoodness2d_G <<<grid, block>>> (*ssrinfo, *grdinfo);

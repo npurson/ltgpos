@@ -2,11 +2,11 @@
 
 Ltgpos is a parallel lightning positioning algorithm based on grid search, with CUDA parallel computing acceleration.
 
-## Install
+## Installation
 
-### 编译 .so 动态链接库，并加入库环境路径
+### Build libltgpos from Source
 
-配置 `tools/pathcfg.sh` 中的路径，并运行以下 Shell 脚本
+配置 `tools/pathcfg.sh` and run the follo
 
 ```shell
 bash tools/build.sh
@@ -14,7 +14,9 @@ bash tools/build.sh
 
 ## Usage
 
-### 编译并运行测试程序
+See [documentation](docs/doc.md).
+
+### Test & Evaluate
 
 运行以下 Shell 脚本
 
@@ -83,7 +85,7 @@ System.load("/home/yftx02/ltgpos/libs/libltgpos.so");
 
 ## TODO
 
+- [ ] Merge 3D goodness map ploting and analyze
 - [ ] Tune goodness threshold for Vincenty Formula
-- [ ] Analyze gt result: traverse all combination (grd_inv, sch_dom)
+- [ ] Traverse all combination for gt input
 - [ ] Analyze 0 gooness but large error result (grd_inv, sch_dom)
-- [ ] Plot 3D goodness map

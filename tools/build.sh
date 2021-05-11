@@ -17,8 +17,8 @@ rm libs/*
 $NVCC --compiler-options "-I$JAVA_INC1 -I$JAVA_INC2 -fPIC" -rdc=true -shared \
   demo/LtgposCaller.cpp \
   src/ltgpos.cpp \
-  src/comb_mapper.cpp \
   src/json_parser.cpp \
+  src/comb_mapper.cpp \
   src/grid_search.cu \
   src/geodistance.cu \
   src/utils.cpp \
