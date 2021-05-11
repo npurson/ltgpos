@@ -8,9 +8,9 @@
 
 int main(int argc, char* argv[])
 {
-    assert(argc == 2);
-    char* addr = argv[0];
-    int port = atoi(argv[1]);
+    assert(argc == 3);
+    char* addr = argv[1];
+    int port = atoi(argv[2]);
 
     WSADATA wsaData;
     WSAStartup(MAKEWORD(2, 2), &wsaData);
@@ -27,10 +27,12 @@ int main(int argc, char* argv[])
     if (bind(sock, (sockaddr*)&sock_addr, sizeof(sock_addr))) {
         printf("%s(%d): %d", __FILE__, __LINE__, WSAGetLastError());
     }
+    printf("Listening...\n");
     listen(sock, 5);
 
-    #define BUFSIZE 16384
+    #define BUFSIZE 8192
     char buf[BUFSIZE];
+    // Wating for connections.
     while (1) {
         sockaddr_in conn_addr;
         int addrlen = sizeof(conn_addr);
@@ -38,19 +40,27 @@ int main(int argc, char* argv[])
         if (conn == INVALID_SOCKET) {
             printf("%s(%d): %d", __FILE__, __LINE__, WSAGetLastError());
         }
+        printf("Connected.\n");
 
+        // Wating for packets.
         while (1) {
             int recv_size = recv(conn, buf, BUFSIZE, 0);
+            if (!recv_size) {       // Remote socket closed.
+                printf("Connection broken.\n");
+                break;
+            }
             buf[recv_size] = 0;
+            printf("%s\n", buf);
             char header[6] = { 0 };
             strncpy(header, buf, 5);
             int packlen = atoi(header);
+            printf("h:%s\tp:%d\tr:%d\n", header, packlen, recv_size);
 
             if (packlen > 0) {              // header > 0: calls ltgpos and return the result.
                 if (packlen > BUFSIZE) {
                     // TODO concat receive string or drop the rest?
-                    char* ret_str = "test";
-                    send(conn, ret_str, strlen(ret_str), 0);
+                    printf("Buf size exceeded, %d\n", packlen);
+                    send(conn, "Buffer size exceeded", strlen("Buffer size exceeded"), 0);
                     continue;
                 } else if (recv_size - 5 < packlen) {       // Incomplete packet.
                     int total_size = recv_size;
@@ -62,8 +72,8 @@ int main(int argc, char* argv[])
                         }
                     }
                 }
-                char* ret_str = "test";
-                send(conn, ret_str, strlen(ret_str), 0);
+                printf("Send 'recv'.\n");
+                send(conn, "Recv", strlen("Recv"), 0);
                 // TODO send exception
             } else if (packlen == -1) {     // header == -1: closes socket.
                 closesocket(conn);

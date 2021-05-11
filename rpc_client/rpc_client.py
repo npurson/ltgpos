@@ -1,44 +1,20 @@
-import os
 import sys
 import argparse
 import socket
 import json
-from collections import namedtuple
+import warnings
+from typing import Tuple
 
 import pymysql
-import django
-
-from DataManagement.models import *
-
-
-Coord = namedtuple('Coord', 'latitude', 'longitude')
-
-STATIONINFO = {
-    ...
-}
-
-
-os.environ['DJANGO_SETTINGS_MODULE'] = 'WebMysql.settings'
-django.setup()
+from utils import StationInfo, convert_slice
 
 
 def parse_args():
-
     parser = argparse.ArgumentParser()
     parser.add_argument('--addr', type=str, default='127.0.0.1')
     parser.add_argument('--port', type=int)
     parser.add_argument('--debug', type=bool, default=True)
     return parser.parse_args()
-
-
-def convert_slice(path: str):
-    """Converts binary number from SLICE file to decimal number."""
-    with open(path, 'rb') as f:
-        data = f.read()[24:]
-        while data:
-            # TODO bin to dec
-            data = data[2:]
-    return
 
 
 class RpcClient(object):
@@ -67,8 +43,9 @@ class RpcClient(object):
 
     def loop(self) -> None:
 
-        def fetch_data(cursor) -> tuple[str, dict]:
+        def fetch_data(cursor) -> Tuple[str, dict]:
             """Fetch data from database."""
+
             def extract_data(data: tuple) -> dict:
                 """Extract a dict of input data from data fetched from database."""
                 DATETIME = 1
@@ -79,19 +56,22 @@ class RpcClient(object):
                     'datetime': data[DATETIME].strftime('%Y-%m-%d %H:%M:%S'),
                     'microsecond': data[MICROSEC],
                     'node': data[STATIONNAME],
-                    'latitude': STATIONINFO[data[STATIONNAME]].latitude,
-                    'longitude': STATIONINFO[data[STATIONNAME]].longitude,
-                    'signal_strength': data[PEAKVALUE],
-                }
+                    'latitude': StationInfo[data[STATIONNAME]].latitude,
+                    'longitude': StationInfo[data[STATIONNAME]].longitude,
+                    'signal_strength': data[PEAKVALUE], }
 
-            data = cursor.fetchone()
-            if data is not None:
-                data_dict = extract_data(data)
-                return data_dict['datetime'], data_dict
-            else:
-                self.exit()
+            while True:
+                data = cursor.fetchone()
+                if data is None:            # Database cleared.
+                    self.exit()
+                elif data[3] not in StationInfo:
+                    warnings.warn('unregistered station name.', UserWarning)
+                else:
+                    break
+            data_dict = extract_data(data)
+            return data_dict['datetime'], data_dict
 
-        def ltgpos_rpc(sock, data: list[dict]) -> None:
+        def ltgpos_rpc(sock, data: list) -> None:
             """
             Header:
                 5 bytes.
@@ -101,22 +81,25 @@ class RpcClient(object):
             """
             data_json = json.dumps(data)
             data = str(len(data_json)).zfill(5) + data_json
+            print(data)
             sock.sendall(data.encode())
             res = sock.recv(8192 * 8)
             # TODO write to database
             print(res)
 
-        prev_datetime, data = fetch_data(self.cursor)
-        data_batch = [data]
-
+        data_batch = None
         while True:
+            if data_batch is None:
+                prev_datetime, data = fetch_data(self.cursor)
+                data_batch = [data]
+                continue
+
             datetime, data = fetch_data(self.cursor)
             if datetime == prev_datetime:
                 data_batch.append(data)
             else:
                 ltgpos_rpc(self.sock, data_batch)
-                datetime, data = fetch_data(self.cursor)
-            prev_datetime = datetime
+                data_batch = None
 
 
 if __name__ == '__main__':
@@ -125,4 +108,4 @@ if __name__ == '__main__':
     DEBUG = args.debug
 
     server = RpcClient(args.addr, args.port)
-    ...
+    server.loop()
