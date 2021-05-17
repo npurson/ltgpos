@@ -1,9 +1,11 @@
 import warnings
 
 from collections import namedtuple
+from typing import List
 
 
 Coord = namedtuple('Coord', ('latitude', 'longitude'))
+
 
 class ConstDict(dict):
     """A Dict whose key-value pairs cannot be modified once inited."""
@@ -21,127 +23,37 @@ StationInfo = ConstDict({
 })
 
 
-def convert_slice(path: str):
-    """Converts binary number from SLICE file to decimal number."""
-
-    def bin2vec(bin: str) -> int:
-        """TODO"""
-        ...
+def convert_slice(path: str) -> List[int]:
+    """Converts bytes from SLICE file to decimal numbers.
+    Each packet is of 1024 bytes, where the first 24 bytes is the header,
+    and every 2 bytes of the rest is a offset binary code.
+    """
+    def bin2vec(comp: bytes) -> int:
+        """Convert offset binary code to decimal numbers.
+        Offset binary code: 2's complement with the inverse of sign bit.
+            n_bits = 15 is the 15th bit == 1 else 14
+            Positive if the sign bit is 1, -1 and reversed.
+            Negative if the sign bit is 0, unchanged.
+        """
+        comp = int.from_bytes(comp, 'big')
+        n_bits = 15 if comp & 0x8000 else 14
+        sign = (comp >> n_bits - 1) ^ 0x1
+        mask = (0x1 << 17 - n_bits) - 1 << n_bits - 1   # Mask of non-value bits, including sign bit
+        comp = comp | mask if sign else comp & ~mask    # Pads to 2's complement with mask of sign
+        comp = int.to_bytes(comp, 2, 'big')
+        num = -int.from_bytes(comp, 'big', signed=True)
+        return int(num * 1e4 / 8192)
 
     with open(path, 'rb') as f:
-        data = f.read()[24:]
         decs = []
-        while data:
-            decs.append(bin2vec(data[:2]))
-            data = data[2:]
-    return
-
-
-'''
-def process(self):
-    with open(self.filePath, 'rb') as f:
-        f.read(24)
-        data = f.read(2)
-        while data:
-            # get the validBit
-            dataStr = bin(int.from_bytes(data, 'big'))[2:]
-            self.data.append(self.convert(data, len(dataStr) + 1))
-            data = f.read(2)
-    return
-
-def convert(self, data, nValidateBit=16):
-    data = int.from_bytes(data, 'big', signed=False)
-
-    if data is None or not data:
-        return 0
-    if nValidateBit > 16:
-        return 0
-
-    mask = 0xffff >> (16 - nValidateBit + 1)
-    # TODO：
-    # 1. 目前数据和机器数据都是小字节序，没做额外操作进行修改
-    # 2. 数据一次读入内存，没有分批读取
-
-    nOffsetValue = data
-    nReturnValue = 0
-    fvalue = 0
-    i = 1
-    tmp1 = 1 << (nValidateBit - 1)
-    if nOffsetValue & (1 << (nValidateBit - 1)):
-        i = 1
-    else:
-        i = -1
-    tmp2 = nOffsetValue & (1 << (nValidateBit - 1))
-    nOffsetValue = nOffsetValue & mask
-
-    if i == 1:
-        nReturnValue = nOffsetValue
-    elif nOffsetValue == 0:
-        nReturnValue = i*(1 << (nValidateBit - 1))
-    else:
-        nReturnValue = ~(nOffsetValue - 1)
-        nReturnValue = (nReturnValue & 0xffff)
-        nReturnValue = nReturnValue & mask
-        nReturnValue = i * nReturnValue
-
-    nReturnValue = nReturnValue * (-1)
-    fvalue = (float(nReturnValue)) / 8192 * 10 * 1000
-    nReturnValue = int(fvalue)
-
-    return nReturnValue
-
-SHORT CBinToSampleData::ConvertOffsetBinaryToTrueCode(PSHORT pOffsetBinaryData,LONG nValidateBit)
-{
-	/*
-	偏移二进制码转化为正常数值：
-	偏移二进制码：为补码符号位取反；
-	补码：正数，符号位为0，数值位和原码相同；负数：符号位为1，数值位求反加1；
-	可推断偏移二进制码计算过程：
-	首先判断最高位，0为负数，1为正数，然后数值位：如果是负数，减1，求反；正数不变
-	*/
-
-	if (pOffsetBinaryData == NULL)
-		return 0;
-	if (nValidateBit > 16)
-		return 0;
-	USHORT nMask =  (0xffff >> (16 - nValidateBit + 1));
-	SHORT nOffsetValue = ntohs(*pOffsetBinaryData);//如果原始字节序不需要转换，可以省略掉此处代码
-	SHORT nReturnValue = 0;
-	FLOAT fValue = 0;
-
-	INT i = 1;
-	if (nOffsetValue & (1 << (nValidateBit - 1)))//符号位为1 代表正数，
-	{
-		i = 1;
-	}
-	else
-	{
-		i = -1;
-	}
-
-	nOffsetValue = nOffsetValue & nMask;//去掉符号位和其他无效bit；
-
-	if(i == 1)
-	{
-		nReturnValue =  i*nOffsetValue;
-	}
-	else if(nOffsetValue == 0)//如果是负数，并且数值位为0，则为
-	{
-		nReturnValue = i*(1 << (nValidateBit - 1));
-	}
-	else
-	{
-		nReturnValue = ~(nOffsetValue - 1);
-		nReturnValue = nReturnValue & nMask;//去掉高位无效bit；
-		nReturnValue =  i*nReturnValue;
-	}
-	nReturnValue = nReturnValue*(-1);//极性做一次变化。
-	fValue = ((FLOAT)nReturnValue)/8192*10*1000;//数值转换成毫伏
-	nReturnValue = (SHORT)fValue;
-	return nReturnValue;
-}
-'''
+        bins = f.read(1024)
+        while bins:
+            decs += [bin2vec(bins[2*i+24:2*i+26]) for i in range(500)]
+            bins = f.read(1024)
+    return decs
 
 
 if __name__ == '__main__':
-    import pdb; pdb.set_trace()
+    decs = convert_slice('test/wuhan3_210416085731.slice')
+    for i in decs:
+        print(i)

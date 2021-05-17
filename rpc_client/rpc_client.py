@@ -48,17 +48,18 @@ class RpcClient(object):
 
             def extract_data(data: tuple) -> dict:
                 """Extract a dict of input data from data fetched from database."""
-                DATETIME = 1
-                MICROSEC = 2    # Actually 0.1 ms.
+                GUID = 0
+                DATETIME = 6
                 STATIONNAME = 3
                 PEAKVALUE = 7
                 return {
-                    'datetime': data[DATETIME].strftime('%Y-%m-%d %H:%M:%S'),
-                    'microsecond': data[MICROSEC],
+                    'guid': data[GUID],
+                    'datetime': data[DATETIME].split('_')[0],
+                    'microsecond': int(data[DATETIME].split('_')[1]),
                     'node': data[STATIONNAME],
                     'latitude': StationInfo[data[STATIONNAME]].latitude,
                     'longitude': StationInfo[data[STATIONNAME]].longitude,
-                    'signal_strength': data[PEAKVALUE], }
+                    'signal_strength': data[PEAKVALUE] }
 
             while True:
                 data = cursor.fetchone()

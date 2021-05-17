@@ -19,6 +19,7 @@ int main(int argc, char* argv[])
     if (sock == INVALID_SOCKET) {
         printf("%s(%d): %d", __FILE__, __LINE__, WSAGetLastError());
     }
+
     sockaddr_in sock_addr;
     sock_addr.sin_family = AF_INET;
     sock_addr.sin_addr.s_addr = inet_addr(addr);
@@ -37,6 +38,7 @@ int main(int argc, char* argv[])
         sockaddr_in conn_addr;
         int addrlen = sizeof(conn_addr);
         SOCKET conn = accept(sock, (sockaddr*)&conn_addr, &addrlen);
+
         if (conn == INVALID_SOCKET) {
             printf("%s(%d): %d", __FILE__, __LINE__, WSAGetLastError());
         }
@@ -72,8 +74,9 @@ int main(int argc, char* argv[])
                         }
                     }
                 }
-                printf("Send 'recv'.\n");
-                send(conn, "Recv", strlen("Recv"), 0);
+                fprintf(stderr, "%s\n", buf);
+                printf("Received'.\n");
+                send(conn, "recv", strlen("Recv"), 0);
                 // TODO send exception
             } else if (packlen == -1) {     // header == -1: closes socket.
                 closesocket(conn);
