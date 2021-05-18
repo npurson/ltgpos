@@ -1,44 +1,24 @@
 import sys
 import argparse
-import socket
 import json
 import warnings
 from typing import Tuple, List
 
-import pymysql
 from utils import StationInfo, convert_slice
 
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--addr', type=str, default='127.0.0.1')
-    parser.add_argument('--port', type=int)
-    parser.add_argument('--debug', type=bool, default=True)
+    parser.add_argument('--file', type=str)
     return parser.parse_args()
 
 
-class RpcClient(object):
+class FakeClient(object):
 
-    def __init__(self, addr, port):
-
-        self.db = pymysql.connect(
-            host='localhost', port=3306, db='thunder',
-            user='root', passwd='xuyifei')
-        self.cursor = self.db.cursor()
-        self.cursor.execute("SELECT * FROM waveinfo_rs")
-        if DEBUG:
-            print('[DB] Database connected.')
-
-        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.sock.connect((addr, port))
-        if DEBUG:
-            print('[RPC] Socket connected.')
+    def __init__(self, file):
+        self.cursor = open(file)
 
     def exit(self):
-        self.sock.sendall('-2'.zfill(5).encode())
-        self.sock.close()
-        self.cursor.close()
-        self.db.close()
         sys.exit()
 
     def loop(self) -> None:
@@ -62,9 +42,10 @@ class RpcClient(object):
                     'signal_strength': int(data[PEAKVALUE]) }
 
             while True:
-                data = cursor.fetchone()
+                data = cursor.readline().strip()
                 if data is None:            # Database cleared.
                     self.exit()
+                data = [d[1:-1] for d in data.split(', ')]
                 if data[3] not in StationInfo:
                     warnings.warn('unregistered station name.', UserWarning)
                 else:
@@ -80,13 +61,10 @@ class RpcClient(object):
                 -1: Close socket.
                 -2: Close server.
             """
-            # TODO Cut off JSON string if its length larger than buffer size
             data_json = json.dumps(data)
-            data = str(len(data_json)).zfill(4) + data_json
-            sock.sendall(data.encode())
-            res = sock.recv(8192 * 8)
-            # TODO write to database
-            print(res)
+            # data = str(len(data_json)).zfill(5) + data_json
+            data = data_json
+            print(data)
             return
 
         def comb_batch(data_batch: List[dict]) -> List[List[dict]]:
@@ -107,6 +85,19 @@ class RpcClient(object):
                 prev_ms = data['microsecond']
                 prev_data = data
 
+            # for b in data_batches:
+            #     # dt = [b[i+1]['microsecond'] - b[i]['microsecond'] for i in range(len(b) - 1)]
+            #     # print(dt)
+            #     # import numpy as np
+            #     # if sum(np.array(dt) > 700):
+            #     #     import pdb; pdb.set_trace()
+            #     print('### Begin of A Batch ###')
+            #     for d in b:
+            #         print(d)
+            #     print('#### End of A Batch ####')
+            # print()
+            return data_batches
+
         data_batch = None
         while True:
             if data_batch is None:
@@ -126,8 +117,5 @@ class RpcClient(object):
 
 if __name__ == '__main__':
     args = parse_args()
-    global DEBUG
-    DEBUG = args.debug
-
-    server = RpcClient(args.addr, args.port)
+    server = FakeClient(args.file)
     server.loop()
