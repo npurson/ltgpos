@@ -8,11 +8,8 @@ elif [ "`ls -A libs`" != "" ]; then
 fi
 [ $? -eq 0 ] || exit 1
 
-
 JAVA_INC1="$JAVA_HOME/include/"
 JAVA_INC2="$JAVA_HOME/include/linux"
-
-rm libs/*
 
 $NVCC --compiler-options "-I$JAVA_INC1 -I$JAVA_INC2 -fPIC" -rdc=true -shared \
   demo/LtgposCaller.cpp \
@@ -24,5 +21,3 @@ $NVCC --compiler-options "-I$JAVA_INC1 -I$JAVA_INC2 -fPIC" -rdc=true -shared \
   src/utils.cpp \
   src/cJSON.c \
   -o libs/libltgpos.so
-
-# sudo cp libs/libltgpos.so /usr/lib/

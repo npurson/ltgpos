@@ -1,9 +1,9 @@
-jdk*
+jdk*/
+figures/
 
-test/*.so
-test/*.out
 test/data/*_81626.csv
 test/data/*_60340.csv
+test/data/*pr*.csv
 
 __pycache__
 *.pyc

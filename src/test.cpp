@@ -1,7 +1,6 @@
 #include <stdio.h>
 #include <time.h>
-
-#include "../src/ltgpos.h"
+#include "ltgpos.h"
 
 
 int main(int argc, char** argv)
@@ -20,6 +19,11 @@ int main(int argc, char** argv)
     int i = 0;
     while (!feof(fp)) {
         if (!fgets(buf, sizeof(buf), fp)) break;
+    #ifdef PLT
+        FILE* fp_grdres = fopen("figures/grdres.txt", "a");
+        fprintf(fp_grdres, "Header\n");
+        fclose(fp_grdres);
+    #endif
         ltgpos(buf);
         i++;
     }

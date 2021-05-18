@@ -90,6 +90,15 @@ void grid_search(ssrinfo_t* ssrinfo, grdinfo_t* grdinfo, schdata_t* schdata)
         }
         out_ans[1] = sch_dom[0] + min_idx % kMaxGrdSize * grd_inv[0];
         out_ans[2] = sch_dom[2] + min_idx / kMaxGrdSize % kMaxGrdSize * grd_inv[1];
+
+        #ifdef PLT
+        FILE* fp = fopen("figures/grdres.txt", "a");
+        for (int j = 0; j < kMaxGrdNum; j++) {
+            fprintf(fp, "%f ", houts[j]);
+        }
+        fprintf(fp, "%f %f %f %f %f %f\n", sch_dom[0], sch_dom[1], sch_dom[2], sch_dom[3], out_ans[1], out_ans[2]);
+        fclose(fp);
+        #endif
     }
     int ref_idx = get_first_involved(schdata->involved);
     out_ans[0] = ssr_times[ref_idx] - getGeoDistance2d_H(ssr_locs[ref_idx * 2], ssr_locs[ref_idx * 2 + 1], out_ans[1], out_ans[2]) / C;

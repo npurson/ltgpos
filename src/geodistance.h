@@ -10,6 +10,7 @@
 #define RB  6356.752314245
 #define F   (1 / 298.257223563)
 #define rad(deg) (deg * PI / 180.0)
+#define pow2(x) ((x) * (x))
 
 
 double getGeoDistance2d_H(double lat1, double lon1, double lat2, double lon2);

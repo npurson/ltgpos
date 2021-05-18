@@ -1,8 +1,7 @@
 . tools/pathcfg.sh
+rm libs/* bin/test.out
 
-rm libs/* test/*.so test/*.out
-
-$NVCC --compiler-options -fPIC -DTEST -rdc=true -shared \
+$NVCC --compiler-options -fPIC -DTEST -DPLT -rdc=true -shared \
   src/ltgpos.cpp \
   src/json_parser.cpp \
   src/comb_mapper.cpp \
@@ -12,9 +11,8 @@ $NVCC --compiler-options -fPIC -DTEST -rdc=true -shared \
   src/cJSON.c \
   -o libs/libltgpos.so
 
-cp libs/libltgpos.so test/
-export LD_LIBRARY_PATH=test:$LD_LIBRARY_PATH
-g++ test/test.cpp -I/usr/local/cuda/include/ -Ltest -lltgpos -o test/test.out
+export LD_LIBRARY_PATH=libs:$LD_LIBRARY_PATH
+g++ src/test.cpp -DPLT -I/usr/local/cuda/include/ -Llibs -lltgpos -o bin/test.out
 
 while getopts "i:o" arg; do
   case $arg in
@@ -28,7 +26,7 @@ while getopts "i:o" arg; do
 done
 
 if [ "$OUT" = true ]; then
-	test/test.out test/data/input_$IN.csv > test/data/output_$IN.csv
+  bin/test.out test/data/input_$IN.csv > test/data/output_$IN.csv
 else
-	test/test.out test/data/input_$IN.csv
+  bin/test.out test/data/input_$IN.csv
 fi
