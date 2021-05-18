@@ -53,8 +53,8 @@ int main(int argc, char* argv[])
             }
             buf[recv_size] = 0;
             printf("%s\n", buf);
-            char header[6] = { 0 };
-            strncpy(header, buf, 5);
+            char header[5] = { 0 };
+            strncpy(header, buf, 4);
             int packlen = atoi(header);
             printf("h:%s\tp:%d\tr:%d\n", header, packlen, recv_size);
 
