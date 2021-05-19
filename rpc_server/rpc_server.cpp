@@ -3,6 +3,9 @@
 #include <assert.h>
 #include <Winsock2.h>
 
+#define HEADERLEN   4
+#define BUFSIZE     8192
+
 #pragma comment(lib, "ws2_32.lib")
 
 
@@ -31,7 +34,6 @@ int main(int argc, char* argv[])
     printf("Listening...\n");
     listen(sock, 5);
 
-    #define BUFSIZE 8192
     char buf[BUFSIZE];
     // Wating for connections.
     while (1) {
@@ -53,35 +55,27 @@ int main(int argc, char* argv[])
             }
             buf[recv_size] = 0;
             printf("%s\n", buf);
-            char header[6] = { 0 };
-            strncpy(header, buf, 5);
+            char header[HEADERLEN + 1] = { 0 };
+            strncpy(header, buf, HEADERLEN);
             int packlen = atoi(header);
             printf("h:%s\tp:%d\tr:%d\n", header, packlen, recv_size);
 
-            if (packlen > 0) {              // header > 0: calls ltgpos and return the result.
-                if (packlen > BUFSIZE) {
-                    // TODO concat receive string or drop the rest?
-                    printf("Buf size exceeded, %d\n", packlen);
-                    send(conn, "Buffer size exceeded", strlen("Buffer size exceeded"), 0);
-                    continue;
-                } else if (recv_size - 5 < packlen) {       // Incomplete packet.
-                    int total_size = recv_size;
-                    while (1) {
-                        total_size += recv(conn, buf + total_size, BUFSIZE - total_size, 0);
-                        if (total_size - 5 == packlen) {
-                            buf[total_size] = 0;
-                            break;
-                        }
-                    }
+            if (packlen > 0) {                  // header > 0: calls ltgpos and return the result.
+                // if (packlen > BUFSIZE)       // This may not happen now.
+                int total_size = recv_size;
+                while (total_size - HEADERLEN != packlen) {     // Incomplete packet.
+                    total_size += recv(conn, buf + total_size, BUFSIZE - total_size, 0);
                 }
-                fprintf(stderr, "%s\n", buf);
-                printf("Received'.\n");
+                buf[total_size] = 0;
+
+                fprintf(stderr, "%s\n", buf);   // Received is written to stderr stream for debugging.
+                printf("Packet received'.\n");
                 send(conn, "recv", strlen("Recv"), 0);
                 // TODO send exception
-            } else if (packlen == -1) {     // header == -1: closes socket.
+            } else if (packlen == -1) {         // header == -1: closes socket.
                 closesocket(conn);
                 break;
-            } else if (packlen == -2) {     // header == -2: closes server.
+            } else if (packlen == -2) {         // header == -2: closes server.
                 closesocket(conn);
                 goto l1;
             }

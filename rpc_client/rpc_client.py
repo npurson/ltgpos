@@ -9,6 +9,10 @@ import pymysql
 from utils import StationInfo, convert_slice
 
 
+HEADERLEN = 4
+BUFSIZE = 8192
+
+
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--addr', type=str, default='127.0.0.1')
@@ -35,7 +39,7 @@ class RpcClient(object):
             print('[RPC] Socket connected.')
 
     def exit(self):
-        self.sock.sendall('-2'.zfill(5).encode())
+        self.sock.sendall('-2'.zfill(HEADERLEN).encode())
         self.sock.close()
         self.cursor.close()
         self.db.close()
@@ -75,18 +79,23 @@ class RpcClient(object):
         def ltgpos_rpc(sock, data: List[dict]) -> None:
             """
             Header:
-                4 bytes.
+                4(HEADERLEN) bytes.
                 >0: length of data string.
                 -1: Close socket.
                 -2: Close server.
             """
-            # TODO Cut off JSON string if its length larger than buffer size
             data_json = json.dumps(data)
-            data = str(len(data_json)).zfill(4) + data_json
-            sock.sendall(data.encode())
-            res = sock.recv(8192 * 8)
+            # Cuts off JSON string if its length larger than buffer size.
+            if len(data_json) > BUFSIZE - HEADERLEN:
+                data_json = data_json[:BUFSIZE - HEADERLEN]
+                data_json = data_json[:data_json.rfind('}') + 2]
+                data_json[-1] = ']'
+
+            packet = str(len(data_json)).zfill(HEADERLEN) + data_json
+            sock.sendall(packet.encode())
+            output = sock.recv(8192 * 8)
             # TODO write to database
-            print(res)
+            print(output)
             return
 
         def comb_batch(data_batch: List[dict]) -> List[List[dict]]:
