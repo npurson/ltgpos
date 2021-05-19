@@ -1,7 +1,7 @@
 . tools/pathcfg.sh
 rm libs/* bin/test.out
 
-$NVCC --compiler-options -fPIC -DTEST -DPLT -rdc=true -shared \
+$NVCC --compiler-options -fPIC -DTEST -rdc=true -shared \
   src/ltgpos.cpp \
   src/json_parser.cpp \
   src/comb_mapper.cpp \
@@ -12,7 +12,7 @@ $NVCC --compiler-options -fPIC -DTEST -DPLT -rdc=true -shared \
   -o libs/libltgpos.so
 
 export LD_LIBRARY_PATH=libs:$LD_LIBRARY_PATH
-g++ src/test.cpp -DPLT -I/usr/local/cuda/include/ -Llibs -lltgpos -o bin/test.out
+g++ src/test.cpp -I/usr/local/cuda/include/ -Llibs -lltgpos -o bin/test.out
 
 while getopts "i:o" arg; do
   case $arg in
