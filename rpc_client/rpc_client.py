@@ -115,6 +115,7 @@ class RpcClient(object):
                     batch = [data]
                 prev_ms = data['microsecond']
                 prev_data = data
+            return data_batches
 
         data_batch = None
         while True:
@@ -129,7 +130,7 @@ class RpcClient(object):
             else:
                 data_batches = comb_batch(data_batch)
                 for batch in data_batches:
-                    ltgpos_rpc(None, batch)
+                    ltgpos_rpc(self.sock, batch)
                 data_batch = None
 
 
