@@ -136,6 +136,7 @@ char* formatRetJsonStr(schdata_t* schdata, cJSON* jarr)
         cJSON_AddItemToObject(jobj, kJsonKeys[i], cJSON_CreateNumber(out_ans[i]));
     }
     cJSON_AddItemToObject(jobj, "current", cJSON_CreateNumber(current));
+#ifndef WIN32
     cJSON_AddItemToObject(jobj, "raw", jarr);
     cJSON_AddItemToObject(jobj, "allDist", cJSON_CreateDoubleArray(all_dist, num_ssrs));
     cJSON_AddItemToObject(jobj, "allDtime", cJSON_CreateDoubleArray(all_dtime, num_ssrs));
@@ -144,13 +145,14 @@ char* formatRetJsonStr(schdata_t* schdata, cJSON* jarr)
     cJSON_AddItemToObject(jobj, "referNode", cJSON_CreateString(nodes[0]));
     cJSON_AddItemToObject(jobj, "involvedSigStrength", cJSON_CreateDoubleArray(us, num_involved));
     cJSON_AddItemToObject(jobj, "involvedCurrent", cJSON_CreateDoubleArray(itdfs, num_involved));
+#endif
 
     char* ret_str = cJSON_PrintUnformatted(jobj);
     cJSON_Delete(jobj);
-    #ifdef TEST
+#ifdef TEST
     printf("%.6lf, %.6lf, %.4lf, %.4lf, %.4lf\n", out_ans[1], out_ans[2], out_ans[3], out_ans[4], current);
     // printf("%.6lf; %.6lf; %.4lf; %.4lf; %.4lf; %s\n", out_ans[1], out_ans[2], out_ans[3], out_ans[4], current, ret_str);
     // printf("%s\n", ret_str);
-    #endif
+#endif
     return ret_str;
 }
