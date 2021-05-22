@@ -3,6 +3,7 @@ import argparse
 import socket
 import json
 import warnings
+from functools import reduce
 from typing import Tuple, List
 
 import pymysql
@@ -28,8 +29,27 @@ class RpcClient(object):
         self.db = pymysql.connect(
             host='localhost', port=3306, db='thunder',
             user='root', passwd='xuyifei')
-        self.cursor = self.db.cursor()
-        self.cursor.execute("SELECT * FROM waveinfo_rs")
+        self.src_cursor = self.db.cursor()
+        self.src_cursor.execute("SELECT * FROM waveinfo_rs")
+
+        self.tar_cursor = self.db.cursor()
+        self.tar_cursor.execute('select TABLE_NAME, table_type, engine from information_schema.tables where table_schema="thunder"')
+        tables = [i[0] for i in self.tar_cursor._rows]
+        if 'result' not in tables:
+            self.tar_cursor.execute(
+                'create table result ('
+                'date_time DATETIME,'
+                'time DECIMAL(10,6),'
+                'latitude DECIMAL(10, 6),'
+                'longitude DECIMAL(10, 6),'
+                'altitude DECIMAL(10, 6),'
+                'goodness DECIMAL(10, 6),'
+                'current DECIMAL(10, 6))')
+
+        # TODO verify keys.
+        self.tar_cursor.execute('DESC result')
+        self.tar_keys = [i[0] for i in self.tar_cursor._rows]
+
         if DEBUG:
             print('[DB] Database connected.')
 
@@ -41,7 +61,8 @@ class RpcClient(object):
     def exit(self):
         self.sock.sendall('-2'.zfill(HEADERLEN).encode())
         self.sock.close()
-        self.cursor.close()
+        self.src_cursor.close()
+        self.tar_cursor.close()
         self.db.close()
         sys.exit()
 
@@ -93,9 +114,18 @@ class RpcClient(object):
 
             packet = str(len(data_json)).zfill(HEADERLEN) + data_json
             sock.sendall(packet.encode())
-            output = sock.recv(8192 * 8)
-            # TODO write to database
-            print(output)
+
+            output = sock.recv(1024 * 8)
+            output = json.loads(output)
+            key, value = map(
+                lambda l: reduce(lambda a, b: a + b + ',', ['('] + l)[:-1] + ')',
+                [output.keys(), output.values()])
+
+            try:
+                self.tar_cursor.execute('insert into result ' + key + ' values ' + value)
+                self.db.commit()
+            except:
+                self.db.rollback()
             return
 
         def comb_batch(data_batch: List[dict]) -> List[List[dict]]:
@@ -120,11 +150,11 @@ class RpcClient(object):
         data_batch = None
         while True:
             if data_batch is None:
-                prev_datetime, data = fetch_data(self.cursor)
+                prev_datetime, data = fetch_data(self.src_cursor)
                 data_batch = [data]
                 continue
 
-            datetime, data = fetch_data(self.cursor)
+            datetime, data = fetch_data(self.src_cursor)
             if datetime == prev_datetime:
                 data_batch.append(data)
             else:

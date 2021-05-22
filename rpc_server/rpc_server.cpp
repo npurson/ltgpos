@@ -34,7 +34,7 @@ int main(int argc, char* argv[])
     printf("Listening...\n");
     listen(sock, 5);
 
-    char buf[BUFSIZE];
+    char buf[BUFSIZE + 1];
     // Wating for connections.
     while (1) {
         sockaddr_in conn_addr;
