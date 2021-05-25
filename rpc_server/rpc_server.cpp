@@ -11,9 +11,9 @@
 
 int main(int argc, char* argv[])
 {
-    assert(argc == 3);
-    char* addr = argv[1];
-    int port = atoi(argv[2]);
+    assert(argc == 2);
+    int port = atoi(argv[1]);
+    // int port = 8888;
 
     WSADATA wsaData;
     WSAStartup(MAKEWORD(2, 2), &wsaData);
@@ -25,7 +25,7 @@ int main(int argc, char* argv[])
 
     sockaddr_in sock_addr;
     sock_addr.sin_family = AF_INET;
-    sock_addr.sin_addr.s_addr = inet_addr(addr);
+    sock_addr.sin_addr.s_addr = INADDR_ANY;
     sock_addr.sin_port = htons(port);
 
     if (bind(sock, (sockaddr*)&sock_addr, sizeof(sock_addr))) {
@@ -53,12 +53,9 @@ int main(int argc, char* argv[])
                 printf("Connection broken.\n");
                 break;
             }
-            buf[recv_size] = 0;
-            printf("%s\n", buf);
             char header[HEADERLEN + 1] = { 0 };
             strncpy(header, buf, HEADERLEN);
             int packlen = atoi(header);
-            printf("h:%s\tp:%d\tr:%d\n", header, packlen, recv_size);
 
             if (packlen > 0) {                  // header > 0: calls ltgpos and return the result.
                 // if (packlen > BUFSIZE)       // This may not happen now.
@@ -67,10 +64,9 @@ int main(int argc, char* argv[])
                     total_size += recv(conn, buf + total_size, BUFSIZE - total_size, 0);
                 }
                 buf[total_size] = 0;
-
-                fprintf(stderr, "%s\n", buf);   // Received is written to stderr stream for debugging.
-                printf("Packet received'.\n");
-                send(conn, "recv", strlen("Recv"), 0);
+                printf("Packet received.\n");
+                char* output = "{\"date_time\":\"2021-05-10 12:35:59\",\"time\":232.55284268356445,\"latitude\":29.401820998079458,\"longitude\":111.85898095548136,\"altitude\":0,\"goodness\":1.8526270500081734,\"current\":82.210809098043072}";
+                send(conn, output, strlen(output), 0);
                 // TODO send exception
             } else if (packlen == -1) {         // header == -1: closes socket.
                 closesocket(conn);

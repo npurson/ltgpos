@@ -45,7 +45,7 @@ class FakeClient(object):
                 data = cursor.readline().strip()
                 if data is None:            # Database cleared.
                     self.exit()
-                data = [d[1:-1] for d in data.split(', ')]
+                data = [d for d in data.split(',')]
                 if data[3] not in StationInfo:
                     warnings.warn('unregistered station name.', UserWarning)
                 else:
