@@ -13,9 +13,8 @@
 
 int main(int argc, char* argv[])
 {
-    assert(argc == 3);
-    char* addr = argv[1];
-    int port = atoi(argv[2]);
+    assert(argc == 2);
+    int port = atoi(argv[1]);
 
     WSADATA wsaData;
     WSAStartup(MAKEWORD(2, 2), &wsaData);
@@ -27,7 +26,7 @@ int main(int argc, char* argv[])
 
     sockaddr_in sock_addr;
     sock_addr.sin_family = AF_INET;
-    sock_addr.sin_addr.s_addr = inet_addr(addr);
+    sock_addr.sin_addr.s_addr = INADDR_ANY;
     sock_addr.sin_port = htons(port);
 
     if (bind(sock, (sockaddr*)&sock_addr, sizeof(sock_addr))) {
@@ -55,14 +54,12 @@ int main(int argc, char* argv[])
                 printf("Connection broken.\n");
                 break;
             }
-            buf[recv_size] = 0;
             char header[HEADERLEN + 1] = { 0 };
             strncpy(header, buf, HEADERLEN);
             int packlen = atoi(header);
 
             if (packlen > 0) {                  // header > 0: calls ltgpos and return the result.
-                // if (packlen > BUFSIZE)       // This may not happen now.
-                int total_size = recv_size;
+                int total_size = recv_size;     // Condition that packlen > BUFSIZE may not happen now.
                 while (total_size - HEADERLEN != packlen) {     // Incomplete packet.
                     total_size += recv(conn, buf + total_size, BUFSIZE - total_size, 0);
                 }
@@ -70,7 +67,7 @@ int main(int argc, char* argv[])
 
                 char* output = ltgpos(buf);
                 send(conn, output, strlen(output));
-                free(output);
+                free(output);                   // !!
                 // TODO send exception
             } else if (packlen == -1) {         // header == -1: closes socket.
                 closesocket(conn);

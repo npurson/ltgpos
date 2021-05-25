@@ -131,7 +131,11 @@ char* formatRetJsonStr(schdata_t* schdata, cJSON* jarr)
     // ################################################################
 
     jobj = cJSON_CreateObject();
+#ifdef WIN32
+    cJSON_AddItemToObject(jobj, "date_time", cJSON_CreateString(datetime));
+#else
     cJSON_AddItemToObject(jobj, "datetime", cJSON_CreateString(datetime));
+#endif
     for (int i = 0; i < 5; ++i) {
         cJSON_AddItemToObject(jobj, kJsonKeys[i], cJSON_CreateNumber(out_ans[i]));
     }

@@ -9,7 +9,7 @@ static const int kNumSchs = 2;
 static const int kNumNxtSchInvs = 2;
 
 // Number of CUDA grids set for a single dimension.
-static const int kMaxGrdSize = 1024;
+static const int kMaxGrdSize = 512;
 // Number of total CUDA grids set for grid search.
 static const int kMaxGrdNum = kMaxGrdSize * kMaxGrdSize;
 

@@ -67,6 +67,8 @@ Modify `demo/LtgposCaller.java` :
 System.load("/home/yftx02/ltgpos/libs/libltgpos.so");
 ```
 
+Set `src/config.h/kMaxGrdSize` to 1024 for GTX 1080 Ti.
+
 ## TODO
 
 - [ ] Traverse all combination for gt input
