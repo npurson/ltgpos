@@ -31,14 +31,17 @@ class RpcClient(object):
         self.db = pymysql.connect(
             host='localhost', port=3306, db='thunder',
             user='root', passwd='xuyifei')
+            # host='localhost', db='thunder',
+            # user='root', passwd='123456')
 
         self.src_cursor = self.db.cursor()
         if os.path.isfile(CURSOR_SAVE):
             with open(CURSOR_SAVE, 'r') as f:
                 lines = f.readlines()
-                self.cur_id = int(lines[0].strip('\n').split('=')[-1])
-                self.cur_datetime = lines[1].strip('\n').split('=')[-1]
-            self.src_cursor.execute("SELECT * FROM waveinfo_rs where id > " + str(self.id) + ' or trigertime > "' + self.date_time + '"')
+                self.cur_datetime = lines[0].strip('\n').split('=')[-1]
+            self.src_cursor.execute('SELECT * FROM waveinfo_rs where trigertime > "' + self.cur_datetime + '" order by trigertime')
+        else:
+            self.src_cursor.execute('SELECT * FROM waveinfo_rs order by trigertime')
 
         self.tar_cursor = self.db.cursor()
         self.tar_cursor.execute('select TABLE_NAME, table_type, engine from information_schema.tables where table_schema="thunder"')
@@ -68,13 +71,12 @@ class RpcClient(object):
             print('[RPC] Socket connected.')
 
     def exit(self):
-        self.sock.sendall('-2'.zfill(HEADERLEN).encode())
+        self.sock.sendall('-1'.zfill(HEADERLEN).encode())
         self.sock.close()
         self.src_cursor.close()
         self.tar_cursor.close()
         self.db.close()
         with open(CURSOR_SAVE, 'w') as f:
-            f.write('id=' + self.cur_id + '\n')
             f.write('datetime=' + self.cur_datetime + '\n')
         sys.exit()
 
@@ -105,7 +107,7 @@ class RpcClient(object):
             if data is None:            # Database cleared.
                 self.exit()
             if data[3] not in StationInfo:
-                warnings.warn('unregistered station name.', UserWarning)
+                warnings.warn('unregistered station name: ' + data[3], UserWarning)
             else:
                 break
         data_dict = extract_data(data)
@@ -129,6 +131,9 @@ class RpcClient(object):
         packet = str(len(data_json)).zfill(HEADERLEN) + data_json
         self.sock.sendall(packet.encode())
         output = self.sock.recv(1024 * 8)
+        if output == b'ERR':
+            print("Error occurred.")
+            return
         output = json.loads(output)
 
         key, value = map(

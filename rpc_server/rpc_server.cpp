@@ -73,7 +73,8 @@ int main(int argc, char* argv[])
                 break;
             } else if (packlen == -2) {         // header == -2: closes server.
                 closesocket(conn);
-                goto l1;
+                // goto l1;
+                break;
             }
         }
     }
