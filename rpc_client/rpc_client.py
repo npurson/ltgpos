@@ -9,8 +9,6 @@ from typing import Tuple, List
 
 import pymysql
 from utils import StationInfo, convert_slice
-
-
 HEADERLEN = 4
 BUFSIZE = 8192
 CURSOR_SAVE = 'cursor.txt'
@@ -21,13 +19,17 @@ def parse_args():
     parser.add_argument('--addr', type=str)
     parser.add_argument('--port', type=int)
     parser.add_argument('--debug', type=bool, default=True)
+    parser.add_argument('--start', type=str, default='')
+    parser.add_argument('--end', type=str, default='')
+    parser.add_argument('--database', type=str, default='')
     return parser.parse_args()
 
 
 class RpcClient(object):
 
-    def __init__(self, addr, port):
+    def __init__(self, args):
 
+        self.args = args
         self.db = pymysql.connect(
             host='localhost', port=3306, db='thunder',
             user='root', passwd='xuyifei')
@@ -35,19 +37,28 @@ class RpcClient(object):
             # user='root', passwd='123456')
 
         self.src_cursor = self.db.cursor()
+        self.start_datetime, self.end_datetime, self.tar_database = None, None, 'ltgpos_rs'
+
+
         if os.path.isfile(CURSOR_SAVE):
             with open(CURSOR_SAVE, 'r') as f:
                 lines = f.readlines()
-                self.cur_datetime = lines[0].strip('\n').split('=')[-1]
-            self.src_cursor.execute('SELECT * FROM waveinfo_rs where trigertime > "' + self.cur_datetime + '" order by trigertime')
-        else:
-            self.src_cursor.execute('SELECT * FROM waveinfo_rs order by trigertime')
+                start_lines = None if len(lines) == 0 else lines[0].strip('\n').split('=')
+                database_lines = None if len(lines) <= 1 else lines[1].strip('\n').split('=')
+                start_date = None if 'datetime' not in start_lines else start_lines[-1]
+                database = None if 'database' not in database_lines else database_lines[-1]
+                self.start_datetime = start_date
+                self.tar_database = database
+        #     self.src_cursor.execute('SELECT * FROM waveinfo_rs where trigertime > "' + self.start_datetime + '" order by trigertime')
+        # else:
+        #     self.src_cursor.execute('SELECT * FROM waveinfo_rs order by trigertime')
 
+        self.run_sql()
         self.tar_cursor = self.db.cursor()
         self.tar_cursor.execute('select TABLE_NAME, table_type, engine from information_schema.tables where table_schema="thunder"')
 
         tables = [i[0] for i in self.tar_cursor._rows]
-        if 'ltgpos_rs' not in tables:
+        if self.tar_database not in tables:
             self.tar_cursor.execute(
                 'create table ltgpos_rs ('
                 'date_time datetime,'
@@ -66,9 +77,28 @@ class RpcClient(object):
             print('[DB] Database connected.')
 
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.sock.connect((addr, port))
+        self.sock.connect((self.args.addr, self.args.port))
         if DEBUG:
             print('[RPC] Socket connected.')
+
+    def run_sql(self):
+        # If args is not None, update the parameters
+        self.start_datetime = args.start if args.start else self.start_datetime
+        self.end_datetime = args.end if args.end else self.end_datetime
+        self.tar_database = args.database if args.database else self.tar_database
+        # Run sql in different modes.
+        # import pdb; pdb.set_trace()
+        if self.start_datetime and self.end_datetime:
+            self.src_cursor.execute(
+                'SELECT * FROM waveinfo_rs where trigertime > "' + self.start_datetime +'" trigertime > "' +
+                self.end_datetime + '" order by trigertime')
+        elif self.start_datetime and not self.end_datetime:
+            self.src_cursor.execute(
+                'SELECT * FROM waveinfo_rs where trigertime > "' + self.start_datetime + '" order by trigertime')
+        else:
+            self.src_cursor.execute('SELECT * FROM waveinfo_rs')
+
+
 
     def exit(self):
         self.sock.sendall('-1'.zfill(HEADERLEN).encode())
@@ -77,7 +107,8 @@ class RpcClient(object):
         self.tar_cursor.close()
         self.db.close()
         with open(CURSOR_SAVE, 'w') as f:
-            f.write('datetime=' + self.cur_datetime + '\n')
+            f.write('datetime=' + self.start_datetime + '\n')
+            f.write('database=' + self.tar_database)
         sys.exit()
 
 
@@ -99,7 +130,7 @@ class RpcClient(object):
                 'longitude': StationInfo[data[STATIONNAME]].longitude,
                 'signal_strength': int(data[PEAKVALUE]) }
             self.cur_id = str(data[GUID])
-            self.cur_datetime = ret['datetime']
+            self.start_datetime = ret['datetime']
             return ret
 
         while True:
@@ -192,5 +223,5 @@ if __name__ == '__main__':
     global DEBUG
     DEBUG = args.debug
 
-    server = RpcClient(args.addr, args.port)
+    server = RpcClient(args)
     server.loop()
