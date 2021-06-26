@@ -1,0 +1,2 @@
+datetime=2021-04-26 08:32:40
+database=ltgpos_rs
