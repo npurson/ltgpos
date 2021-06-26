@@ -1,3 +1,5 @@
 # Ltgpos-RPC
 
-TODO
+## TODO
+
+server 不return raw
