@@ -17,8 +17,8 @@ def parse_args():
     parser.add_argument('--port', type=int, required=True, help='TODO')
     parser.add_argument('-t', '--start_datetime', type=str, help='TODO')
     parser.add_argument('-e', '--end_datetime', type=str, help='TODO')
-    parser.add_argument('-s', '--src_table', type=str, required=True,
-                        choices=('waveinfo_rs', 'waveinfo_ic', 'waveinfo_nb', 'waveinfo_pb'),
+    parser.add_argument('-s', '--src_table', type=str,
+                        choices=(None, 'waveinfo_rs', 'waveinfo_ic', 'waveinfo_nb', 'waveinfo_pb'),
                         help='TODO')
     parser.add_argument('-d', '--dst_table', type=str, help='TODO')
     parser.add_argument('--alarm', type=bool, default=False, help='TODO')
@@ -29,15 +29,15 @@ class LtgposClient(object):
 
     def __init__(self, args):
 
-        self.TIMESTAMP_SAVE = 'timestamp.txt'
-        if args.auto and os.path.isfile(self.TIMESTAMP_SAVE):
+        self.TIMESTAMP_SAVE = 'timestamp.json'
+        if args.alarm and os.path.isfile(self.TIMESTAMP_SAVE):
             with open(self.TIMESTAMP_SAVE) as f:
                 timestamps = json.load(f)
                 args.start_datetime = timestamps.get(args.src_table)
 
         self.db = pymysql.connect(
             host='localhost', db='thunder',
-            user='root', passwd='xuyifei',
+            user='root', passwd='123456',
             # host='localhost', db='thunder',
             # user='root', passwd='123456'
         )
@@ -47,15 +47,14 @@ class LtgposClient(object):
         def sql_select(args) -> str:
             cmd = 'SELECT * FROM ' + args.src_table
             if args.start_datetime or args.end_datetime:
-                condition1 = ('trigertime > "' + self.start_datetime + '"'
+                condition1 = ('trigertime > "' + args.start_datetime + '"'
                               if args.start_datetime else '')
-                condition2 = ('trigertime < "' + self.end_datetime + '"'
+                condition2 = ('trigertime < "' + args.end_datetime + '"'
                               if args.end_datetime else '')
                 cmd += ' WHERE ' + (' and ' if args.start_datetime and args.end_datetime
                                     else '').join((condition1, condition2))
             cmd += ' order by trigertime'
             return cmd
-
         self.src_cursor.execute(sql_select(args))
         self.tar_cursor.execute('SELECT table_name, table_type, engine '
                                 'FROM information_schema.tables '
@@ -69,13 +68,14 @@ class LtgposClient(object):
                 'CREATE TABLE ' + args.dst_table + ' ('
                 '时间 DATETIME,'
                 '微秒 DECIMAL(10, 6),'
-                '经度 DECIMAL(10, 4),'
                 '纬度 DECIMAL(10, 4),'
-                '高度 DECIMAL(10, 3),'
-                '优度 DECIMAL(10, 6),'
-                '参与站数 DECIMAL(10, 6),'
-                '参与站 DECIMAL(10, 6)'
-                '波形识别号 '  # TODO
+                '经度 DECIMAL(10, 4),'
+                '拟合优度 DECIMAL(10, 6),'
+                '电流 DECIMAL(10, 6),'
+                '参与站数 int,'
+                '参与站 varchar(256),'
+                '波形识别号 varchar(256),'
+                'IS3D tinyint'
                 ')'
             )
         self.tar_cursor.execute('DESC ' + args.dst_table)
@@ -117,7 +117,7 @@ class LtgposClient(object):
         return data_dict['datetime'], data_dict
 
     def exit(self):
-        if args.auto:
+        if args.alarm:
             if os.path.isfile(self.TIMESTAMP_SAVE):
                 with open(self.TIMESTAMP_SAVE) as f:
                     timestamps = json.load(f)
@@ -136,18 +136,22 @@ class LtgposClient(object):
     def ltgpos_rpc(self, data: List[dict]) -> None:
         self.rpc_client.send(data)
         output = self.rpc_client.recv()
+        output['n_involved'] = len(output['involvedNodes'])
         if not output:
             print('Exception occurred')
             return  # exception
+        output['involvedNodes'] = ' '.join(output['involvedNodes'])
+        output['is3d'] = 0 if self.args.src_table == 'waveinfo_rs' else 1
 
-        key, value = map(
-            lambda l: reduce(
-                lambda a, b: str(a) + str(b) + ',', ['('] + list(l)
-            )[:-1] + ')', [output.keys(), output.values()])
-        value = value.replace('(', '("').replace(',', '",', 1)
+        key_map = { 'date_time': '时间', 'time': '微秒', 'latitude': '纬度', 'longitude': '经度', 'altitude': '高度',
+                    'goodness': '优度', 'current': '电流', 'n_involved': '参与站数', 'involvedNodes': '参与站',
+                    'wave_id': '波形识别号', 'is3d': 'IS3D' }
+        key = str(tuple([key_map[k] for k in output.keys()])).replace("'", "")
+        value = str(tuple([v for v in output.values()]))
+        sql_insert = 'INSERT INTO ' + self.args.dst_table + ' ' + key + ' values ' + value + ';'
 
         try:
-            self.tar_cursor.execute('INSERT INTO ' + self.args.dst_table + ' ' + key + ' values ' + value + ';')
+            self.tar_cursor.execute(sql_insert)
             self.db.commit()
         except:
             self.db.rollback()

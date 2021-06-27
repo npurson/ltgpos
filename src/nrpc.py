@@ -28,22 +28,24 @@ class RPCBase(object):
         # header = len(data).to_bytes(self.headsz, byteorder='little')
         header = str(len(data)).zfill(self.headsz)
         packet = header + data
-        sock.sendall(packet)
+        sock.sendall(packet.encode())
         self.logger(('SEND', f'packet of size {len(packet)}'))
 
     def _recv(self, sock, bufsz=1024):
         packet = sock.recv(bufsz)
-        if not packet:
-            return self.CLOSE_CONNECT, None
-        header, data = packet[:self.headsz], packet[self.headsz:]
-        # header = int.from_bytes(header, 'little', signed=True)
-        header = int(header)
-        if header in [self.CLOSE_CONNECT, self.CLOSE_REMOTE]:
-            return header, None
-        while len(data) != header:
-            data += sock.recv(bufsz)
-        self.logger(('RECV', f'packet of size {self.headsz + len(data)}'))
-        return header, self.from_bytes(data)
+        # if not packet:
+        #     return self.CLOSE_CONNECT, None
+        # header, data = packet[:self.headsz], packet[self.headsz:]
+        # # header = int.from_bytes(header, 'little', signed=True)
+        # header = int(header)
+        # if header in [self.CLOSE_CONNECT, self.CLOSE_REMOTE]:
+        #     return header, None
+        # while len(data) != header:
+        #     data += sock.recv(bufsz)
+        self.logger(('RECV', f'packet of size {len(packet)}'))
+        # return header, self.from_bytes(data)
+        return self.from_bytes(packet)
+
 
     def to_bytes(self, data) -> bytes:
         """Converts data to bytes for sending.
