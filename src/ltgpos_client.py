@@ -1,4 +1,4 @@
-import os
+﻿import os
 import sys
 import argparse
 import json
@@ -41,8 +41,10 @@ class LtgposClient(object):
             # host='localhost', db='thunder',
             # user='root', passwd='123456'
         )
+        args.is3d = True if args.src_table in ('waveinfo_ic', 'waveinfo_nb', 'waveinfo_pb') else False
         self.src_cursor = self.db.cursor()
-        self.tar_cursor = self.db.cursor()
+        self.tar_cursor2d = self.db.cursor()
+        self.tar_cursor3d = self.db.cursor() if args.is3d else None
 
         def sql_select(args) -> str:
             cmd = 'SELECT * FROM ' + args.src_table
@@ -56,16 +58,20 @@ class LtgposClient(object):
             cmd += ' order by trigertime'
             return cmd
         self.src_cursor.execute(sql_select(args))
-        self.tar_cursor.execute('SELECT table_name, table_type, engine '
-                                'FROM information_schema.tables '
-                                'WHERE table_schema="thunder"')
+        self.tar_cursor2d.execute('SELECT table_name, table_type, engine '
+                                  'FROM information_schema.tables '
+                                  'WHERE table_schema="thunder"')
+        if args.is3d:
+            self.tar_cursor3d.execute('SELECT table_name, table_type, engine '
+                                      'FROM information_schema.tables '
+                                      'WHERE table_schema="thunder"')
 
-        if not args.dst_table:
-            args.dst_table = 'ltgpos_' + '2d' if args.src_table.split('_')[-1] == 'rs' else '2d'  # TODO 3d
-        tables = [i[0] for i in self.tar_cursor._rows]
-        if args.dst_table not in tables:
-            self.tar_cursor.execute(
-                'CREATE TABLE ' + args.dst_table + ' ('
+        args.dst_table2d = 'ltgpos_' + '2d' if not args.dst_table else args.dst_table + '2d'
+        args.dst_table3d = ('ltgpos_' + '3d' if not args.dst_table else args.dst_table + '3d') if args.is3d else None
+        tables = [i[0] for i in self.tar_cursor2d._rows]
+        if args.dst_table2d not in tables:
+            self.tar_cursor2d.execute(
+                'CREATE TABLE ' + args.dst_table2d + ' ('
                 '时间 DATETIME,'
                 '微秒 DECIMAL(10, 6),'
                 '纬度 DECIMAL(10, 4),'
@@ -78,7 +84,24 @@ class LtgposClient(object):
                 'IS3D tinyint'
                 ')'
             )
-        self.tar_cursor.execute('DESC ' + args.dst_table)
+        self.tar_cursor2d.execute('DESC ' + args.dst_table2d)
+        if args.is3d:
+            tables = [i[0] for i in self.tar_cursor3d._rows]
+            if args.dst_table3d not in tables:
+                self.tar_cursor3d.execute(
+                    'CREATE TABLE ' + args.dst_table3d + ' ('
+                    '时间 DATETIME,'
+                    '微秒 DECIMAL(10, 6),'
+                    '纬度 DECIMAL(10, 4),'
+                    '经度 DECIMAL(10, 4),'
+                    '拟合优度 DECIMAL(10, 6),'
+                    '高度 DECIMAL(10, 6),'
+                    '参与站数 int,'
+                    '参与站 varchar(256),'
+                    '波形识别号 varchar(256),'
+                    ')'
+                )
+            self.tar_cursor3d.execute('DESC ' + args.dst_table3d)
         print('Database connected')
         self.rpc_client = nrpc.Client(args.addr, args.port, mode='json', bufsz=5120)
         print('NRPC Client connected')
@@ -129,32 +152,56 @@ class LtgposClient(object):
             print('Timestamps dumped to ' + self.TIMESTAMP_SAVE)
         self.rpc_client.close_connect()
         self.src_cursor.close()
-        self.tar_cursor.close()
+        self.tar_cursor2d.close()
+        if self.tar_cursor3d:
+            self.tar_cursor3d.close()
         self.db.close()
         sys.exit()
 
-    def ltgpos_rpc(self, data: List[dict]) -> None:
+    def ltgpos_rpc(self, data: List[dict]) -> dict:
         self.rpc_client.send(data)
         output = self.rpc_client.recv()
         output['n_involved'] = len(output['involvedNodes'])
         if not output:
             print('Exception occurred')
-            return  # exception
+            return
         output['involvedNodes'] = ' '.join(output['involvedNodes'])
-        output['is3d'] = 0 if self.args.src_table == 'waveinfo_rs' else 1
+        return output
+
+    def insert_ltgpos(self, data: List[dict]) -> None:
+
+        output = self.ltgpos_rpc(data)
+        if not output:
+            return
+
+        output['is3d'] = 1 if args.is3d else 0
+        output.pop('altitude')
 
         key_map = { 'date_time': '时间', 'time': '微秒', 'latitude': '纬度', 'longitude': '经度', 'altitude': '高度',
-                    'goodness': '优度', 'current': '电流', 'n_involved': '参与站数', 'involvedNodes': '参与站',
+                    'goodness': '拟合优度', 'current': '电流', 'n_involved': '参与站数', 'involvedNodes': '参与站',
                     'wave_id': '波形识别号', 'is3d': 'IS3D' }
         key = str(tuple([key_map[k] for k in output.keys()])).replace("'", "")
         value = str(tuple([v for v in output.values()]))
-        sql_insert = 'INSERT INTO ' + self.args.dst_table + ' ' + key + ' values ' + value + ';'
+        sql_insert = 'INSERT INTO ' + self.args.dst_table2d + ' ' + key + ' values ' + value + ';'
 
         try:
-            self.tar_cursor.execute(sql_insert)
+            self.tar_cursor2d.execute(sql_insert)
             self.db.commit()
         except:
             self.db.rollback()
+
+        if args.is3d:
+            # output.pop('current')
+            # key = str(tuple([key_map[k] for k in output.keys()])).replace("'", "")
+            # value = str(tuple([v for v in output.values()]))
+            # sql_insert = 'INSERT INTO ' + self.args.dst_table3d + ' ' + key + ' values ' + value + ';'
+
+            # try:
+            #     self.tar_cursor3d.execute(sql_insert)
+            #     self.db.commit()
+            # except:
+            #     self.db.rollback()
+            ...
         return
 
     def loop(self) -> None:
@@ -190,7 +237,7 @@ class LtgposClient(object):
             else:
                 data_batches = comb_batch(data_batch)
                 for batch in data_batches:
-                    self.ltgpos_rpc(batch)
+                    self.insert_ltgpos(batch)
                 data_batch = None
 
 
