@@ -65,9 +65,13 @@ int main(int argc, char* argv[])
                 }
                 buf[total_size] = 0;
 
-                char* output = ltgpos(buf);
-                send(conn, output, strlen(output));
-                free(output);                   // !!
+                char* output = ltgpos(buf + HEADERLEN);
+                if (output) {
+                    send(conn, output, strlen(output));
+                    free(output);
+                } else {
+                    send(conn, "Error: ltgpos returns NULL", 24);
+                }
                 // TODO send exception
             } else if (packlen == -1) {         // header == -1: closes socket.
                 closesocket(conn);

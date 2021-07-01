@@ -140,12 +140,12 @@ char* formatRetJsonStr(schdata_t* schdata, cJSON* jarr)
         cJSON_AddItemToObject(jobj, kJsonKeys[i], cJSON_CreateNumber(out_ans[i]));
     }
     cJSON_AddItemToObject(jobj, "current", cJSON_CreateNumber(current));
+    cJSON_AddItemToObject(jobj, "involvedNodes", cJSON_CreateStringArray((const char**)nodes, num_involved));
 #ifndef WIN32
     cJSON_AddItemToObject(jobj, "raw", jarr);
     cJSON_AddItemToObject(jobj, "allDist", cJSON_CreateDoubleArray(all_dist, num_ssrs));
     cJSON_AddItemToObject(jobj, "allDtime", cJSON_CreateDoubleArray(all_dtime, num_ssrs));
     cJSON_AddItemToObject(jobj, "isInvolved", cJSON_CreateIntArray(is_involved, num_ssrs));
-    cJSON_AddItemToObject(jobj, "involvedNodes", cJSON_CreateStringArray((const char**)nodes, num_involved));
     cJSON_AddItemToObject(jobj, "referNode", cJSON_CreateString(nodes[0]));
     cJSON_AddItemToObject(jobj, "involvedSigStrength", cJSON_CreateDoubleArray(us, num_involved));
     cJSON_AddItemToObject(jobj, "involvedCurrent", cJSON_CreateDoubleArray(itdfs, num_involved));
