@@ -3,5 +3,5 @@ python src/ltgpos_client.py ^
     --start_datetime 2021-5-01 ^
     --end_datetime 2021-6-30 ^
     --src_table waveinfo_rs ^
-    --dst_table ltgpos
+    --dst_table ltgpos_
 pause

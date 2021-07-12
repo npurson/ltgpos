@@ -1,9 +1,7 @@
-﻿import os
-import sys
+import os
 import argparse
 import json
 import warnings
-from functools import reduce
 from typing import Tuple, List
 import pymysql
 
@@ -29,7 +27,7 @@ class LtgposClient(object):
 
     def __init__(self, args):
 
-        self.TIMESTAMP_SAVE = 'timestamp.json'
+        self.TIMESTAMP_SAVE = 'src/timestamp.json'
         if args.alarm and os.path.isfile(self.TIMESTAMP_SAVE):
             with open(self.TIMESTAMP_SAVE) as f:
                 timestamps = json.load(f)
@@ -98,7 +96,7 @@ class LtgposClient(object):
                     '高度 DECIMAL(10, 6),'
                     '参与站数 int,'
                     '参与站 varchar(256),'
-                    '波形识别号 varchar(256),'
+                    '波形识别号 varchar(256)'
                     ')'
                 )
             self.tar_cursor3d.execute('DESC ' + args.dst_table3d)
@@ -146,7 +144,10 @@ class LtgposClient(object):
                     timestamps = json.load(f)
             else:
                 timestamps = { tb: '' for tb in ('waveinfo_rs', 'waveinfo_ic', 'waveinfo_nb', 'waveinfo_pb') }
-            timestamps[args.src_table] = self.cur_datetime
+            try:
+                timestamps[args.src_table] = self.cur_datetime
+            except:
+                ...
             with open(self.TIMESTAMP_SAVE, 'w') as f:
                 json.dump(timestamps, f, indent=4)
             print('Timestamps dumped to ' + self.TIMESTAMP_SAVE)
@@ -156,15 +157,16 @@ class LtgposClient(object):
         if self.tar_cursor3d:
             self.tar_cursor3d.close()
         self.db.close()
-        sys.exit()
+        # sys.exit()
+        raise EOFError
 
     def ltgpos_rpc(self, data: List[dict]) -> dict:
         self.rpc_client.send(data)
         output = self.rpc_client.recv()
-        output['n_involved'] = len(output['involvedNodes'])
         if not output:
             print('Exception occurred')
             return
+        output['n_involved'] = len(output['involvedNodes'])
         output['involvedNodes'] = ' '.join(output['involvedNodes'])
         return output
 
@@ -227,11 +229,17 @@ class LtgposClient(object):
         data_batch = None
         while True:
             if data_batch is None:
-                prev_datetime, data = self.fetch_data(self.src_cursor)
+                try:
+                    prev_datetime, data = self.fetch_data(self.src_cursor)
+                except EOFError:
+                    return
                 data_batch = [data]
                 continue
 
-            datetime, data = self.fetch_data(self.src_cursor)
+            try:
+                datetime, data = self.fetch_data(self.src_cursor)
+            except EOFError:
+                return
             if datetime == prev_datetime:
                 data_batch.append(data)
             else:
